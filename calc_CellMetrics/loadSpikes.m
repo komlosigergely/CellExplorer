@@ -99,7 +99,11 @@ addParameter(p,'shankID',[],@isnumeric);    % Filter by shankID
 addParameter(p,'cluID',[],@isnumeric);      % Filter by cluID
 addParameter(p,'region',[],@isstring);      % Filter by brain regions
 
+% kg added 
+addParameter(p,'spikesFileName','.spikes',@ischar); % for dynamic spikes.cellinfo file name
+
 parse(p,varargin{:})
+%assignin('base', 'p',p);fff
 
 basepath = p.Results.basepath;
 clusteringpath = p.Results.clusteringpath;
@@ -108,6 +112,7 @@ basename = p.Results.basename;
 electrodeGroups = p.Results.electrodeGroups;
 raw_clusters = p.Results.raw_clusters;
 spikes = p.Results.spikes;
+spikesFileName = p.Results.spikesFileName;
 LSB = p.Results.LSB;
 session = p.Results.session;
 labelsToRead = p.Results.labelsToRead;
@@ -123,16 +128,16 @@ elseif isempty(basename)
     basename = basenameFromBasepath(basepath);
 end
 
-if exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file') && ~parameters.forceReload
-    load(fullfile(basepath,[basename,'.spikes.cellinfo.mat']))
+if exist(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'file') && ~parameters.forceReload
+    load(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']))
     if ~isfield(spikes,'processinginfo') || (isfield(spikes,'processinginfo') && spikes.processinginfo.version < 3 && strcmp(spikes.processinginfo.function,'loadSpikes') )
         parameters.forceReload = true;
         disp('spikes.mat structure not up to date. Reloading spikes.')
     end
 elseif ~isempty(spikes)
     disp('loadSpikes: Using existing spikes file')
-% elseif exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file') 
-%     load(fullfile(basepath,[basename,'.spikes.cellinfo.mat']))
+% elseif exist(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'file') 
+%     load(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']))
 else
     parameters.forceReload = true;
     spikes = [];
@@ -919,7 +924,7 @@ if parameters.forceReload
     spikes.numcells = numel(spikes.times);
     spikes.UID = 1:spikes.numcells;
     spikes.sr = session.extracellular.sr;
-    
+
     % Getting waveforms from dat (raw data)
     if parameters.getWaveformsFromDat && ~strcmpi(format,'allensdk')
         spikes = getWaveformsFromDat(spikes,session,'showWaveforms',parameters.showWaveforms);
@@ -945,19 +950,52 @@ if parameters.forceReload
         disp('Failed to retrieve system info.')
     end
     
-    % Saving output to a CellExplorer compatible spikes file.
-    if parameters.saveMat
-        disp('loadSpikes: Saving spikes')
+%     % Saving output to a CellExplorer compatible spikes file.
+%     if parameters.saveMat
+%         disp('loadSpikes: Saving spikes')
+%         try
+%             structSize = whos('spikes');
+%             if structSize.bytes/1000000000 > 2
+%                 save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes','-v7.3')
+%             else
+%                 save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes')
+%             end
+%         catch
+%             warning('Spikes could not be saved')
+%         end
+%     end
+else
+     % Getting waveforms from dat (raw data)
+    if parameters.getWaveformsFromDat && ~strcmpi(format,'allensdk')
+        spikes = getWaveformsFromDat(spikes,session,'showWaveforms',parameters.showWaveforms);
+        
+        spikes.processinginfo.params.getWaveformsFromDat = parameters.getWaveformsFromDat;
+        spikes.processinginfo.params.basename = basename;
+        spikes.processinginfo.params.format = format;
+        spikes.processinginfo.params.clusteringpath = clusteringpath;
+        spikes.processinginfo.params.basepath = basepath;
+        spikes.processinginfo.params.getWaveformsFromSource = parameters.getWaveformsFromSource;
         try
-            structSize = whos('spikes');
-            if structSize.bytes/1000000000 > 2
-                save(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'spikes','-v7.3')
-            else
-                save(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'spikes')
-            end
+            spikes.processinginfo.username = char(java.lang.System.getProperty('user.name'));
+            spikes.processinginfo.hostname = char(java.net.InetAddress.getLocalHost.getHostName);
         catch
-            warning('Spikes could not be saved')
+            disp('Failed to retrieve system info.')
         end
+    end
+end
+
+% Saving output to a CellExplorer compatible spikes file. \kg put it here
+if parameters.saveMat
+    disp('loadSpikes: Saving spikes')
+    try
+        structSize = whos('spikes');
+        if structSize.bytes/1000000000 > 2
+            save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes','-v7.3')
+        else
+            save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes')
+        end
+    catch
+        warning('Spikes could not be saved')
     end
 end
 
