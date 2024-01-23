@@ -117,8 +117,15 @@ addParameter(p,'showWaveforms',true,@islogical);
 addParameter(p,'summaryFigures',false,@islogical);
 addParameter(p,'sessionSummaryFigure',true,@islogical);
 addParameter(p,'debugMode',false,@islogical);     
- 
+addParameter(p,'Diagnostic',false,@islogical); 
+
 parse(p,varargin{:})
+
+if p.Results.Diagnostic
+    assignin('base', 'p', p);
+    edit ProcessCellMetrics
+    return
+end
 
 sessionID = p.Results.sessionID;
 sessionin = p.Results.sessionName;
