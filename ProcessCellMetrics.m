@@ -106,9 +106,11 @@ addParameter(p,'forceReload',false,@islogical);
 addParameter(p,'forceReloadSpikes',false,@islogical);
 addParameter(p,'submitToDatabase',false,@islogical);
 addParameter(p,'saveMat',true,@islogical);
-addParameter(p,'saveAs','cell_metrics',@isstr);
+addParameter(p,'saveAs','cell_metrics',@ischar);
+addParameter(p,'spikesFileName','.spikes',@ischar); % for dynamic naming
+
 addParameter(p,'saveBackup',true,@islogical);
-addParameter(p,'fileFormat','mat',@isstr);
+addParameter(p,'fileFormat','mat',@ischar);
 addParameter(p,'transferFilesFromClusterpath',true,@islogical);
 
 % Plot related parameters
@@ -118,6 +120,9 @@ addParameter(p,'summaryFigures',false,@islogical);
 addParameter(p,'sessionSummaryFigure',true,@islogical);
 addParameter(p,'debugMode',false,@islogical);     
 addParameter(p,'Diagnostic',false,@islogical); 
+
+% kg
+addParameter(p,'noCellClassification',false,@islogical);    
 
 parse(p,varargin{:})
 
@@ -131,6 +136,7 @@ sessionID = p.Results.sessionID;
 sessionin = p.Results.sessionName;
 sessionStruct = p.Results.session;
 basepath = p.Results.basepath;
+spikesFileName = p.Results.spikesFileName;
 parameters = p.Results;
 timerCalcMetrics = tic;
 
@@ -284,8 +290,16 @@ else
     dispLog('Getting spikes',basename)
     spikes{1} = loadSpikes('session',session,'labelsToRead',preferences.loadSpikes.labelsToRead,'getWaveformsFromDat',parameters.getWaveformsFromDat,'showWaveforms',parameters.showWaveforms);
 end
+
 if parameters.getWaveformsFromDat && (~isfield(spikes{1},'processinginfo') || ~isfield(spikes{1}.processinginfo.params,'WaveformsSource') || ~strcmp(spikes{1}.processinginfo.params.WaveformsSource,'dat file') || spikes{1}.processinginfo.version<3.5 || parameters.forceReloadSpikes == true)
-    spikes{1} = loadSpikes('forceReload',true,'spikes',spikes{1},'session',session,'labelsToRead',preferences.loadSpikes.labelsToRead,'showWaveforms',parameters.showWaveforms);
+    spikes{1} = loadSpikes('forceReload',false,...
+        'spikesFileName',spikesFileName,...
+        'spikes',spikes{1},...
+        'session',session,...
+        'labelsToRead',preferences.loadSpikes.labelsToRead,...
+        'showWaveforms',parameters.showWaveforms);
+    parameters.getWaveformsFromDat = 0; % otherwise it will run again in line 479
+   % spikes{1} = loadSpikes('forceReload',true,'spikes',spikes{1},'session',session,'labelsToRead',preferences.loadSpikes.labelsToRead,'showWaveforms',parameters.showWaveforms); % this is the original line%
 end
 
 spikes{1}.numcells = length(spikes{1}.times);
@@ -497,13 +511,15 @@ if any(contains(parameters.metrics,{'waveform_metrics','all'})) && ~any(contains
             end
         end
         
-        dispLog('Calculating waveform metrics',basename);
-        waveform_metrics = calc_waveform_metrics(spikes{spkExclu},sr,'showFigures',parameters.showFigures);
-        cell_metrics.troughToPeak = waveform_metrics.troughtoPeak;
-        cell_metrics.troughtoPeakDerivative = waveform_metrics.derivative_TroughtoPeak;
-        cell_metrics.ab_ratio = waveform_metrics.ab_ratio;
-        cell_metrics.polarity = waveform_metrics.polarity;
-        
+        if isfield(spikes,'filtWaveform')
+            dispLog('Calculating waveform metrics',basename);
+            waveform_metrics = calc_waveform_metrics(spikes{spkExclu},sr,'showFigures',parameters.showFigures);
+            cell_metrics.troughToPeak = waveform_metrics.troughtoPeak;
+            cell_metrics.troughtoPeakDerivative = waveform_metrics.derivative_TroughtoPeak;
+            cell_metrics.ab_ratio = waveform_metrics.ab_ratio;
+            cell_metrics.polarity = waveform_metrics.polarity;
+        end
+
         % Removing outdated fields
         field2remove = {'derivative_TroughtoPeak','filtWaveform','filtWaveform_std','rawWaveform','rawWaveform_std','timeWaveform'};
         test = isfield(cell_metrics,field2remove);
@@ -1445,18 +1461,21 @@ end
 %% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % cell_classification_putativeCellType
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
-
-if ~isfield(cell_metrics,'putativeCellType') || ~ parameters.keepCellClassification
-    dispLog(['Cell-type classification schema: ' preferences.putativeCellType.classification_schema],basename)
-    putativeCellType = celltype_classification.(preferences.putativeCellType.classification_schema)(cell_metrics,preferences);
-    if all(size(putativeCellType)==[1,cell_metrics.general.cellCount]) && iscell(putativeCellType)
-        cell_metrics.putativeCellType = putativeCellType;
-    else
-        warning('Cell type classification not properly formatted')
-        cell_metrics.putativeCellType = repmat({'Unknown'},1,cell_metrics.general.cellCount);
+if ~parameters.noCellClassification
+    if ~isfield(cell_metrics,'putativeCellType') || ~ parameters.keepCellClassification
+        dispLog(['Cell-type classification schema: ' preferences.putativeCellType.classification_schema],basename)
+        putativeCellType = celltype_classification.(preferences.putativeCellType.classification_schema)(cell_metrics,preferences);
+        if all(size(putativeCellType)==[1,cell_metrics.general.cellCount]) && iscell(putativeCellType)
+            cell_metrics.putativeCellType = putativeCellType;
+        else
+            warning('Cell type classification not properly formatted')
+            cell_metrics.putativeCellType = repmat({'Unknown'},1,cell_metrics.general.cellCount);
+        end
     end
+else
+    disp('No cell type classification')
+    cell_metrics.putativeCellType = repmat({'Unknown'},1,cell_metrics.general.cellCount);
 end
-
 %% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % Cleaning metrics
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -1501,10 +1520,11 @@ test = isfield(cell_metrics.general,field2remove);
 cell_metrics.general = rmfield(cell_metrics.general,field2remove(test));
 
 % cleaning waveforms
-field2remove = {'filt_absolute','filt_zscored', 'raw_absolute','raw_zscored','time_zscored'};
-test2 = isfield(cell_metrics.waveforms,field2remove);
-cell_metrics.waveforms = rmfield(cell_metrics.waveforms,field2remove(test2));
-
+if parameters.getWaveformsFromDat
+    field2remove = {'filt_absolute','filt_zscored', 'raw_absolute','raw_zscored','time_zscored'};
+    test2 = isfield(cell_metrics.waveforms,field2remove);
+    cell_metrics.waveforms = rmfield(cell_metrics.waveforms,field2remove(test2));
+end
 % cleaning cell_metrics.general.session & cell_metrics.general.animal
 field2remove = {'name'};
 test2 = isfield(cell_metrics.general.session,field2remove);
