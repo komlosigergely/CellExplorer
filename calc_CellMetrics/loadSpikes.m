@@ -79,9 +79,9 @@ addParameter(p,'format',[],@ischar); % clustering format: phy, klustakwik/neuros
 addParameter(p,'basename','',@ischar); % The basename file naming convention
 addParameter(p,'electrodeGroups',nan,@isnumeric); % electrodeGroups: Loading only a subset of electrodeGroups from the spike format (only applicable to Klustakwik/neurosuite and KlustaViewa)
 addParameter(p,'raw_clusters',false,@islogical); % raw_clusters: Load only a subset of clusters (might not work anymore as it has not been tested for a long time)
-addParameter(p,'saveMat',true,@islogical); % Save spikes to mat file?
+addParameter(p,'saveMat',false,@islogical); % Save spikes to mat file?
 addParameter(p,'forceReload',false,@islogical); % Reload spikes from original format (overwrites existing mat file if saveMat==true)?
-addParameter(p,'getWaveformsFromDat',true,@islogical); % Gets waveforms from dat (binary file). If false, the script will use waveforms from other sources.
+addParameter(p,'getWaveformsFromDat',false,@islogical); % Gets waveforms from dat (binary file). If false, the script will use waveforms from other sources.
 addParameter(p,'getWaveformsFromSource',false,@islogical); % Use Waveform from processed sources. E.g. waveforms stored in Neurosuite format.
 addParameter(p,'spikes',[],@isstruct); % Load existing spikes structure to append new spike info
 addParameter(p,'LSB',0.195,@isnumeric); % Least significant bit (LSB in uV/bit) Intan = 0.195, Amplipex = 0.3815. (range/precision)
