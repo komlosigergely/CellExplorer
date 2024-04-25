@@ -7,7 +7,8 @@ function spikes = getWaveformsFromDat(spikes,session,varargin)
 % session metadata struct:  https://cellexplorer.org/datastructure/data-structure-and-format/#session-metadata
 %
 % Last edited: 21-12-2020
-
+% Revision:
+% 04-25-2024 by KG: ~line 220: ~isempty(spikes.times{ii}) && ~strcmpi(spikes.region(ii), 'CTX')
 % Loading preferences
 preferences = preferences_ProcessCellMetrics(session);
 
@@ -216,7 +217,7 @@ for i = 1:length(unitsToProcess)
     nChannelFit = min([16,length(goodChannels),length(electrodeGroups{spikes.shankID(ii)})]);
     x = 1:nChannelFit;
     y = spikes.peakVoltage_sorted{ii}(x);
-    if ~isempty(spikes.times{ii})
+    if ~isempty(spikes.times{ii}) && ~strcmpi(spikes.region(ii), 'CTX') % second condition added by kg
         f0 = fit(x',y',g,'StartPoint',[spikes.peakVoltage(ii), 5, 5],'Lower',[1, 0.001, 0],'Upper',[5000, 50, 1000]);
         fitCoeffValues = coeffvalues(f0);
         spikes.peakVoltage_expFitLengthConstant(ii) = fitCoeffValues(2);
