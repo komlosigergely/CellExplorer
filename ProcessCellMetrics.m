@@ -1700,6 +1700,12 @@ function spkExclu = setSpkExclu(metrics,parameters)
 end
 
 %% Modification by KG
-% For clusters in electrodegroups having less then 2 channels
-% ce_fix_WaveformFit_with_2_channels is included when the length constant of
-% waveform is calculated. look for: ce_fix_WaveformFit_with_2_channels
+% 04-xx-2024
+% Additional optional inputs: spikesFileName, saveAs, enable dynamic outpout (cell_metrics) and
+% input (spikes) structure names.
+% 
+% 04-26-2024
+% - For clusters in electrodegroups having less then 2 channels
+%   ce_fix_WaveformFit_with_2_channels is included when the length constant of
+%   waveform is calculated. look for: ce_fix_WaveformFit_with_2_channels.
+% - getWaveformsFromDat: inputs has been modified in some places.
