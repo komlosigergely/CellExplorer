@@ -8,11 +8,7 @@ function spikes = getWaveformsFromDat(spikes,session,varargin)
 %
 % Last edited: 21-12-2020
 % Revision:
-% 04-25-2024 by KG: 
-% - Make sure that the channel numbers in the electrode group are at least 3.
-%   Modified lines are at 'Fitting peakVoltage sorted with exponential function with length constant'
-%   section. 
-
+% -see at the end of the file
 
 
 % Loading preferences
@@ -310,3 +306,9 @@ if showWaveforms && ishandle(fig1)
 end
 disp(['Waveform extraction complete. Total duration: ' num2str(round(toc(timerVal)/60)),' minutes'])
 end
+
+%% Modifications by KG
+% 04-25-2024
+% - For clusters in electrodegroups having less then 2 channels
+%   ce_fix_WaveformFit_with_2_channels is included when the length constant of
+%   waveform is calculated. look for: ce_fix_WaveformFit_with_2_channels.
