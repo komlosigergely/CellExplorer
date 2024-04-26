@@ -985,18 +985,18 @@ else
 end
 
 % Saving output to a CellExplorer compatible spikes file. \kg put it here
-if parameters.saveMat
-    disp('loadSpikes: Saving spikes')
-    try
-        structSize = whos('spikes');
-        if structSize.bytes/1000000000 > 2
-            save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes','-v7.3')
-        else
-            save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes')
-        end
-    catch
-        warning('Spikes could not be saved')
-    end
+if parameters.saveMat % KG commented out
+%     disp('loadSpikes: Saving spikes')
+%     try
+%         structSize = whos('spikes');
+%         if structSize.bytes/1000000000 > 2
+%             save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes','-v7.3')
+%         else
+%             save(fullfile(basepath,[basename,spikesFileName,'.cellinfo.mat']),'spikes')
+%         end
+%     catch
+%         warning('Spikes could not be saved')
+%     end
 end
 
 filteredFields = {'UID','shankID','cluID','region'};
