@@ -75,7 +75,7 @@ function cell_metrics = ProcessCellMetrics(varargin)
 
 %   By Peter Petersen
 %   Last edited: 27-02-2021
-
+% Modification by KG at the end.
 %% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % Parsing parameters
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -297,8 +297,11 @@ if parameters.getWaveformsFromDat && (~isfield(spikes{1},'processinginfo') || ~i
         'spikes',spikes{1},...
         'session',session,...
         'labelsToRead',preferences.loadSpikes.labelsToRead,...
+        'getWaveformsFromDat', true,...
         'showWaveforms',parameters.showWaveforms);
-    parameters.getWaveformsFromDat = 0; % otherwise it will run again in line 479
+    if isfield(spikes{1}.processinginfo.params,'WaveformsSource') 
+        parameters.getWaveformsFromDat = 0; % otherwise it will run again in line 479
+    end
    % spikes{1} = loadSpikes('forceReload',true,'spikes',spikes{1},'session',session,'labelsToRead',preferences.loadSpikes.labelsToRead,'showWaveforms',parameters.showWaveforms); % this is the original line%
 end
 
@@ -510,8 +513,8 @@ if any(contains(parameters.metrics,{'waveform_metrics','all'})) && ~any(contains
                 cell_metrics.waveforms.peakVoltage_all{j}(good_channels) = range(spikes{spkExclu}.filtWaveform_all{j}(good_channels,:),2);
             end
         end
-        
-        if isfield(spikes,'filtWaveform')
+       
+        if isfield(spikes{spkExclu},'filtWaveform')
             dispLog('Calculating waveform metrics',basename);
             waveform_metrics = calc_waveform_metrics(spikes{spkExclu},sr,'showFigures',parameters.showFigures);
             cell_metrics.troughToPeak = waveform_metrics.troughtoPeak;
@@ -601,10 +604,13 @@ if any(contains(parameters.metrics,{'waveform_metrics','all'})) && ~any(contains
                 u = cell_metrics.trilat_x(j);
                 v = cell_metrics.trilat_y(j);
                 [channel_distance,idx2] = sort(hypot((x1(:)-u),(y1(:)-v)));
-                
                 nChannelFit = min([trilat_nChannels,length(session.extracellular.electrodeGroups.channels{spikes{spkExclu}.shankID(j)})]);
-                x = 1:nChannelFit;
-                y = peakVoltage(idx(x));
+                if nChannelFit < 3  % added by kg to overcome fitting errors in 2-channel CTX clusters kg
+                    [x, y, nChannelFit] = ce_fix_WaveformFit_with_2_channels(nChannelFit, peakVoltage(idx)); 
+                else
+                    x = 1:nChannelFit;
+                    y = peakVoltage(idx(x));
+                end
                 x2 = channel_distance(1:nChannelFit)';
                 xdata{j} = x2;
                 ydata{j} = y;
@@ -1692,3 +1698,8 @@ function spkExclu = setSpkExclu(metrics,parameters)
         spkExclu = 1; % All spikes (can be restricted)
     end
 end
+
+%% Modification by KG
+% For clusters in electrodegroups having less then 2 channels
+% ce_fix_WaveformFit_with_2_channels is included when the length constant of
+% waveform is calculated. look for: ce_fix_WaveformFit_with_2_channels
