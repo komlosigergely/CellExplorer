@@ -8,7 +8,13 @@ function spikes = getWaveformsFromDat(spikes,session,varargin)
 %
 % Last edited: 21-12-2020
 % Revision:
-% 04-25-2024 by KG: ~line 220: ~isempty(spikes.times{ii}) && ~strcmpi(spikes.region(ii), 'CTX')
+% 04-25-2024 by KG: 
+% - Make sure that the channel numbers in the electrode group are at least 3.
+%   Modified lines are at 'Fitting peakVoltage sorted with exponential function with length constant'
+%   section. 
+
+
+
 % Loading preferences
 preferences = preferences_ProcessCellMetrics(session);
 
@@ -215,9 +221,14 @@ for i = 1:length(unitsToProcess)
     
     % Fitting peakVoltage sorted with exponential function with length constant
     nChannelFit = min([16,length(goodChannels),length(electrodeGroups{spikes.shankID(ii)})]);
-    x = 1:nChannelFit;
-    y = spikes.peakVoltage_sorted{ii}(x);
-    if ~isempty(spikes.times{ii}) && ~strcmpi(spikes.region(ii), 'CTX') % second condition added by kg
+    if nChannelFit < 3  % added by kg to overcome fitting errors in 2-channel CTX clusters 
+        [x,y, ~] = ce_fix_WaveformFit_with_2_channels(nChannelFit, spikes.peakVoltage_sorted{ii});
+    else
+        x = 1:nChannelFit;                      % original code
+        y = spikes.peakVoltage_sorted{ii}(x);   % original code
+    end
+
+    if ~isempty(spikes.times{ii})% && ~strcmpi(spikes.region(ii), 'CTX') % second condition added by kg
         f0 = fit(x',y',g,'StartPoint',[spikes.peakVoltage(ii), 5, 5],'Lower',[1, 0.001, 0],'Upper',[5000, 50, 1000]);
         fitCoeffValues = coeffvalues(f0);
         spikes.peakVoltage_expFitLengthConstant(ii) = fitCoeffValues(2);
