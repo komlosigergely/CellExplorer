@@ -461,6 +461,18 @@ cell_metrics.general.saveAs = parameters.saveAs;
 % Saving spike times to metrics
 cell_metrics.spikes.times = spikes{1}.times;
 
+% Add other spikes fields to cell_metrics / kg
+%cell_metrics.spikes.amplitudes = spikes{1}.amplitudes;
+if isfield(spikes, 'optoTag')
+    cell_metrics.spikes.optoTag = spikes.optoTag;
+end
+
+% Add field for ksfolder
+if isfield(spikes, 'ksfolder')
+    cell_metrics.ksfolder = spikes.ksfolder;
+else
+    warning('There is no ksfolder field in spikes structure.')
+end
 %% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % Waveform based calculations
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -1700,6 +1712,10 @@ function spkExclu = setSpkExclu(metrics,parameters)
 end
 
 %% Modification by KG
+% 04-27-2024
+% Add field for ksfolder. Look for 'Add field for ksfolder' in 'Initializing cell_metrics struct' section. 
+% 
+% 
 % 04-xx-2024
 % Additional optional inputs: spikesFileName, saveAs, enable dynamic outpout (cell_metrics) and
 % input (spikes) structure names.
