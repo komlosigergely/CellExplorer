@@ -26,6 +26,8 @@ addParameter(p,'keepWaveforms_raw', false, @islogical); % Keep all extracted raw
 addParameter(p,'saveFig', false, @islogical); % Save figure with data
 addParameter(p,'extraLabel', '', @ischar); % Extra labels in figures
 addParameter(p,'getBadChannelsFromDat', true, @islogical); % Determining any extra bad channels from noiselevel of .dat file
+addParameter(p,'basepath', '', @ischar);
+addParameter(p,'Diagnostic', false, @islogical);
 
 parse(p,varargin{:})
 
@@ -39,11 +41,24 @@ keepWaveforms_filt = p.Results.keepWaveforms_filt;
 keepWaveforms_raw = p.Results.keepWaveforms_raw;
 saveFig = p.Results.saveFig;
 extraLabel  = p.Results.extraLabel;
+basepath = p.Results.basepath;
+Diagnostic = p.Results.Diagnostic;
 params = p.Results;
 
+if Diagnostic
+    assignin('base', 'spikes', spikes)
+    assignin('base', 'session', session)
+    assignin('base', 'p', p)
+    edit getWaveformsFromDat
+    ggg
+end
+
 % Loading session struct into separate parameters
-basepath = session.general.basePath;
-basename = session.general.name;
+if isempty(basepath)
+    basepath = session.general.basePath;
+    basename = session.general.name;
+end
+basename = bz_BasenameFromBasepath(basepath);
 LSB = session.extracellular.leastSignificantBit;
 nChannels = session.extracellular.nChannels;
 sr = session.extracellular.sr;
@@ -111,9 +126,13 @@ if showWaveforms
     movegui('center');
 end
 
-wfWin = round((wfWin_sec * sr)/2);
+wfWin = round((wfWin_sec * sr)/2); % half window size in datapoint
 window_interval = wfWin-ceil(wfWinKeep*sr):wfWin-1+ceil(wfWinKeep*sr); % +- 0.8 ms of waveform
 window_interval2 = wfWin-ceil(1.5*wfWinKeep*sr):wfWin-1+ceil(1.5*wfWinKeep*sr); % +- 1.20 ms of waveform
+
+%window_interval = 1:2*wfWin;
+%window_interval2 = window_interval;
+
 t1 = toc(timerVal);
 if ~exist(fullfile(basepath,fileNameRaw),'file')
     error(['Binary file missing: ', fullfile(basepath,fileNameRaw)])
@@ -151,11 +170,21 @@ for i = 1:length(unitsToProcess)
 %         wfF2(:,jj) = filtfilt(b1, a1, wf(goodChannels(jj),:));
 %     end
     
-    % Pulls the waveforms from all channels from the dat
+   % Pulls the waveforms from all channels from the dat
+   % spikeIndicies2 = spkTmp*nChannels;
     startIndicies2 = (spkTmp - wfWin)*nChannels+1;
     stopIndicies2 = (spkTmp + wfWin)*nChannels;
-    X2 = cumsum(accumarray(cumsum([1;stopIndicies2(:)-startIndicies2(:)+1]),[startIndicies2(:);0]-[0;stopIndicies2(:)]-1)+1);
-    wf = LSB * permute(reshape(double(rawData.Data(X2(1:end-1))),nChannels,(wfWin*2),[]),[2,3,1]);
+    if 0 % Peter's confusing accumarray solution
+        X2 = cumsum(accumarray(cumsum([1;stopIndicies2(:)-startIndicies2(:)+1]),[startIndicies2(:);0]-[0;stopIndicies2(:)]-1)+1);
+        wf = LSB * permute(reshape(double(rawData.Data(X2(1:end-1))),nChannels,(wfWin*2),[]),[2,3,1]);
+    else % identical result with clearer concept
+        X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
+        X2 = ([X2{:}])';   
+       % indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);
+        wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
+    end
+    clear X2
+
     wfF = zeros((wfWin * 2),length(spkTmp),nChannels);
     for jjj = 1 : nChannels
         wfF(:,:,jjj) = filtfilt(b1, a1, wf(:,:,jjj));
@@ -179,6 +208,11 @@ for i = 1:length(unitsToProcess)
         end
     end
 
+    % 
+    t_all = (-wfWin+1:wfWin)/sr; % megneztem, a t_all(x) = 0 pozicio indicesM matrixban a spikeIndicies2 pozicioknak felel meg. Magyarul a spiketime az t=0-ban van.
+    t_interval = t_all(window_interval)*1000;
+    t_interval2 = t_all(window_interval2)*1000;
+
     rawWaveform_all = mean(wf,3);
     spikes.rawWaveform{ii} = rawWaveform_all(spikes.maxWaveformCh1(ii),window_interval);
     rawWaveform_std = std((wf(spikes.maxWaveformCh1(ii),:,:)-mean(wf(spikes.maxWaveformCh1(ii),:,:),3)),0,3);
@@ -190,11 +224,15 @@ for i = 1:length(unitsToProcess)
     spikes.rawWaveform_std{ii} = rawWaveform_std(window_interval);
     spikes.filtWaveform_all{ii} = filtWaveform_all(:,window_interval2);
     spikes.filtWaveform_std{ii} = filtWaveform_std(window_interval);
-    spikes.timeWaveform{ii} = ([-ceil(wfWinKeep*sr)*(1/sr):1/sr:(ceil(wfWinKeep*sr)-1)*(1/sr)])*1000;
-    spikes.timeWaveform_all{ii} = ([-ceil(1.5*wfWinKeep*sr)*(1/sr):1/sr:(ceil(1.5*wfWinKeep*sr)-1)*(1/sr)])*1000;
+    
+    spikes.timeWaveform{ii} = t_interval;
+    spikes.timeWaveform_all{ii} = t_interval2;
+    %spikes.timeWaveform{ii} = ([-ceil(wfWinKeep*sr)*(1/sr):1/sr:(ceil(wfWinKeep*sr)-1)*(1/sr)])*1000;
+    %spikes.timeWaveform_all{ii} = ([-ceil(1.5*wfWinKeep*sr)*(1/sr):1/sr:(ceil(1.5*wfWinKeep*sr)-1)*(1/sr)])*1000;
+    
+    
     spikes.peakVoltage(ii) = range(spikes.filtWaveform{ii});
     spikes.channels_all{ii} = [1:nChannels];
-    
     [B,I] = sort(range(spikes.filtWaveform_all{ii}(goodChannels,:),2),'descend');
     spikes.peakVoltage_sorted{ii} = zeros(1,nChannels);
     spikes.peakVoltage_sorted{ii}(1:length(goodChannels)) = B;
@@ -290,6 +328,10 @@ spikes.processinginfo.params.Waveforms_nPull = nPull;
 spikes.processinginfo.params.WaveformsWin_sec = wfWin_sec;
 spikes.processinginfo.params.WaveformsWinKeep = wfWinKeep;
 spikes.processinginfo.params.WaveformsFilterType = 'butter';
+%temp 
+spikes.processinginfo.params.spkTmp = spkTmp;
+
+spikes.processinginfo.params.spiketimes = spikes.times{:}(ismember(spikes.ts{:},spkTmp));
 clear rawWaveform rawWaveform_std filtWaveform filtWaveform_std
 clear rawData
 
@@ -308,6 +350,10 @@ disp(['Waveform extraction complete. Total duration: ' num2str(round(toc(timerVa
 end
 
 %% Modifications by KG
+% 05-14-2024
+% - basepath was added as an input. This is now the preferred way to use, not
+%   from session structure. 
+%
 % 04-25-2024
 % - For clusters in electrodegroups having less then 2 channels
 %   ce_fix_WaveformFit_with_2_channels is included when the length constant of
