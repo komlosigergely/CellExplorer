@@ -5693,7 +5693,7 @@ end
                 tableData{fn,1} = true;
                 tableData{fn,2} = brainRegions{fn};
                 tableData{fn,3} = [num2str(data.session.brainRegions.(brainRegions{fn}).channels)];
-                tableData{fn,4} = [num2str(data.session.brainRegions.(brainRegions{fn}).electrodeGroups)];
+  %              tableData{fn,4} = [num2str(data.session.brainRegions.(brainRegions{fn}).electrodeGroups)];
             end
             UI.settings.brainRegionsToHide = [];
         else
