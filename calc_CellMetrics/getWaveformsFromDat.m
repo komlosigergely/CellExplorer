@@ -28,6 +28,7 @@ addParameter(p,'extraLabel', '', @ischar); % Extra labels in figures
 addParameter(p,'getBadChannelsFromDat', true, @islogical); % Determining any extra bad channels from noiselevel of .dat file
 addParameter(p,'basepath', '', @ischar);
 addParameter(p,'Diagnostic', false, @islogical);
+addParameter(p,'Input1', [], @isnumeric); % temporary. Delete it if not used
 
 parse(p,varargin{:})
 
@@ -44,6 +45,7 @@ extraLabel  = p.Results.extraLabel;
 basepath = p.Results.basepath;
 Diagnostic = p.Results.Diagnostic;
 params = p.Results;
+Input1 = p.Results.Input1;              % temporary. Delete it if not used
 
 if Diagnostic
     assignin('base', 'spikes', spikes)
@@ -149,12 +151,19 @@ g = fittype('a*exp(-x/b)+c','dependent',{'y'},'independent',{'x'},'coefficients'
 for i = 1:length(unitsToProcess)
     ii = unitsToProcess(i);
     t1 = toc(timerVal);
+    if isempty(Input1)
+        'Input1 is empty'
     if isfield(spikes,'ts')
         spkTmp = spikes.ts{ii}(find(spikes.ts{ii}./sr > wfWin_sec/1.8 & spikes.ts{ii}./sr < duration-wfWin_sec/1.8));
     else
         spkTmp = round(sr * spikes.times{ii}(find(spikes.times{ii} > wfWin_sec/1.8 & spikes.times{ii} < duration-wfWin_sec/1.8)));
     end
-    
+    else
+        
+          spkTmp = round(sr *   Input1);
+          disp(['Input1 megvan ', num2str(numel(spkTmp))])
+    end
+
     if length(spkTmp) > nPull
         spkTmp = spkTmp(randperm(length(spkTmp)));
         spkTmp = sort(spkTmp(1:nPull));
