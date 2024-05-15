@@ -28,7 +28,7 @@ addParameter(p,'extraLabel', '', @ischar); % Extra labels in figures
 addParameter(p,'getBadChannelsFromDat', true, @islogical); % Determining any extra bad channels from noiselevel of .dat file
 addParameter(p,'basepath', '', @ischar);
 addParameter(p,'Diagnostic', false, @islogical);
-addParameter(p,'Input1', [], @isnumeric); % temporary. Delete it if not used
+addParameter(p,'Input1', []); % temporary. Delete it if not used
 
 parse(p,varargin{:})
 
@@ -52,7 +52,7 @@ if Diagnostic
     assignin('base', 'session', session)
     assignin('base', 'p', p)
     edit getWaveformsFromDat
-    ggg
+
 end
 
 % Loading session struct into separate parameters
@@ -77,6 +77,12 @@ catch
     precision = 'int16';
 end
 
+if ~isempty(Input1)
+    assignin("base",'Input1', Input1)
+InputT = Input1.time;
+Input1 = Input1.val;
+
+end
 timerVal = tic;
 
 if filtFreq(2) > sr/2
@@ -181,6 +187,8 @@ for i = 1:length(unitsToProcess)
     
    % Pulls the waveforms from all channels from the dat
    % spikeIndicies2 = spkTmp*nChannels;
+%    startIndicies2 = (spkTmp - wfWin)*nChannels+1;  %original
+%     stopIndicies2 = (spkTmp + wfWin)*nChannels;  %original
     startIndicies2 = (spkTmp - wfWin)*nChannels+1;
     stopIndicies2 = (spkTmp + wfWin)*nChannels;
     if 0 % Peter's confusing accumarray solution
@@ -189,10 +197,15 @@ for i = 1:length(unitsToProcess)
     else % identical result with clearer concept
         X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
         X2 = ([X2{:}])';   
-       % indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);
+        %indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);  %original
+        %wf = LSB *
+        %permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
+        indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
         wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
     end
+
     clear X2
+
 
     wfF = zeros((wfWin * 2),length(spkTmp),nChannels);
     for jjj = 1 : nChannels
@@ -207,9 +220,13 @@ for i = 1:length(unitsToProcess)
     wf = permute(wf,[3,1,2]);
     wfF2 = mean(wfF(goodChannels,:,:),3)';
     [~, maxWaveformCh1] = max(max(wfF2(window_interval,:))-min(wfF2(window_interval,:)));
+    maxWaveformCh1 = goodChannels(maxWaveformCh1)
+   maxWaveformCh1 = spikes.maxWaveformCh1
+if ~isfield(spikes, 'maxWaveformCh1')
     spikes.maxWaveformCh1(ii) = goodChannels(maxWaveformCh1);
     spikes.maxWaveformCh(ii) = spikes.maxWaveformCh1(ii)-1;
-    
+end
+
     % Assigning shankID to the unit
     for jj = 1:nElectrodeGroups
         if any(electrodeGroups{jj} == spikes.maxWaveformCh1(ii))
