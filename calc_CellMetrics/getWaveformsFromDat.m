@@ -28,7 +28,6 @@ addParameter(p,'extraLabel', '', @ischar); % Extra labels in figures
 addParameter(p,'getBadChannelsFromDat', true, @islogical); % Determining any extra bad channels from noiselevel of .dat file
 addParameter(p,'basepath', '', @ischar);
 addParameter(p,'Diagnostic', false, @islogical);
-addParameter(p,'Input1', []); % temporary. Delete it if not used
 
 parse(p,varargin{:})
 
@@ -45,14 +44,13 @@ extraLabel  = p.Results.extraLabel;
 basepath = p.Results.basepath;
 Diagnostic = p.Results.Diagnostic;
 params = p.Results;
-Input1 = p.Results.Input1;              % temporary. Delete it if not used
 
 if Diagnostic
     assignin('base', 'spikes', spikes)
     assignin('base', 'session', session)
     assignin('base', 'p', p)
     edit getWaveformsFromDat
-
+    bbb
 end
 
 % Loading session struct into separate parameters
@@ -77,12 +75,6 @@ catch
     precision = 'int16';
 end
 
-if ~isempty(Input1)
-    assignin("base",'Input1', Input1)
-InputT = Input1.time;
-Input1 = Input1.val;
-
-end
 timerVal = tic;
 
 if filtFreq(2) > sr/2
@@ -157,17 +149,11 @@ g = fittype('a*exp(-x/b)+c','dependent',{'y'},'independent',{'x'},'coefficients'
 for i = 1:length(unitsToProcess)
     ii = unitsToProcess(i);
     t1 = toc(timerVal);
-    if isempty(Input1)
-        'Input1 is empty'
+
     if isfield(spikes,'ts')
         spkTmp = spikes.ts{ii}(find(spikes.ts{ii}./sr > wfWin_sec/1.8 & spikes.ts{ii}./sr < duration-wfWin_sec/1.8));
     else
         spkTmp = round(sr * spikes.times{ii}(find(spikes.times{ii} > wfWin_sec/1.8 & spikes.times{ii} < duration-wfWin_sec/1.8)));
-    end
-    else
-        
-          spkTmp = round(sr *   Input1);
-          disp(['Input1 megvan ', num2str(numel(spkTmp))])
     end
 
     if length(spkTmp) > nPull
@@ -186,26 +172,22 @@ for i = 1:length(unitsToProcess)
 %     end
     
    % Pulls the waveforms from all channels from the dat
-   % spikeIndicies2 = spkTmp*nChannels;
-%    startIndicies2 = (spkTmp - wfWin)*nChannels+1;  %original
-%     stopIndicies2 = (spkTmp + wfWin)*nChannels;  %original
-    startIndicies2 = (spkTmp - wfWin)*nChannels+1;
-    stopIndicies2 = (spkTmp + wfWin)*nChannels;
-    if 0 % Peter's confusing accumarray solution
-        X2 = cumsum(accumarray(cumsum([1;stopIndicies2(:)-startIndicies2(:)+1]),[startIndicies2(:);0]-[0;stopIndicies2(:)]-1)+1);
-        wf = LSB * permute(reshape(double(rawData.Data(X2(1:end-1))),nChannels,(wfWin*2),[]),[2,3,1]);
-    else % identical result with clearer concept
-        X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
-        X2 = ([X2{:}])';   
-        %indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);  %original
-        %wf = LSB *
-        %permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
-        indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
-        wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
-    end
+   startIndicies2 = (spkTmp - wfWin)*nChannels+1;  %original
+   stopIndicies2 = (spkTmp + wfWin)*nChannels;  %original
 
-    clear X2
-
+   if 0 % Peter's confusing accumarray solution
+       X2 = cumsum(accumarray(cumsum([1;stopIndicies2(:)-startIndicies2(:)+1]),[startIndicies2(:);0]-[0;stopIndicies2(:)]-1)+1);
+       wf = LSB * permute(reshape(double(rawData.Data(X2(1:end-1))),nChannels,(wfWin*2),[]),[2,3,1]);
+   else % identical result with clearer concept
+       X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
+       X2 = ([X2{:}])';
+       %indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);  %original
+       %wf = LSB *
+       %permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
+       indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
+       LSB = 1;
+       wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
+   end
 
     wfF = zeros((wfWin * 2),length(spkTmp),nChannels);
     for jjj = 1 : nChannels
@@ -220,12 +202,8 @@ for i = 1:length(unitsToProcess)
     wf = permute(wf,[3,1,2]);
     wfF2 = mean(wfF(goodChannels,:,:),3)';
     [~, maxWaveformCh1] = max(max(wfF2(window_interval,:))-min(wfF2(window_interval,:)));
-    maxWaveformCh1 = goodChannels(maxWaveformCh1)
-   maxWaveformCh1 = spikes.maxWaveformCh1
-if ~isfield(spikes, 'maxWaveformCh1')
     spikes.maxWaveformCh1(ii) = goodChannels(maxWaveformCh1);
     spikes.maxWaveformCh(ii) = spikes.maxWaveformCh1(ii)-1;
-end
 
     % Assigning shankID to the unit
     for jj = 1:nElectrodeGroups
@@ -234,7 +212,7 @@ end
         end
     end
 
-    % 
+    % kg for simplification
     t_all = (-wfWin+1:wfWin)/sr; % megneztem, a t_all(x) = 0 pozicio indicesM matrixban a spikeIndicies2 pozicioknak felel meg. Magyarul a spiketime az t=0-ban van.
     t_interval = t_all(window_interval)*1000;
     t_interval2 = t_all(window_interval2)*1000;
@@ -251,8 +229,8 @@ end
     spikes.filtWaveform_all{ii} = filtWaveform_all(:,window_interval2);
     spikes.filtWaveform_std{ii} = filtWaveform_std(window_interval);
     
-    spikes.timeWaveform{ii} = t_interval;
-    spikes.timeWaveform_all{ii} = t_interval2;
+    spikes.timeWaveform{ii} = t_interval; %kg
+    spikes.timeWaveform_all{ii} = t_interval2; %kg
     %spikes.timeWaveform{ii} = ([-ceil(wfWinKeep*sr)*(1/sr):1/sr:(ceil(wfWinKeep*sr)-1)*(1/sr)])*1000;
     %spikes.timeWaveform_all{ii} = ([-ceil(1.5*wfWinKeep*sr)*(1/sr):1/sr:(ceil(1.5*wfWinKeep*sr)-1)*(1/sr)])*1000;
     
@@ -376,9 +354,10 @@ disp(['Waveform extraction complete. Total duration: ' num2str(round(toc(timerVa
 end
 
 %% Modifications by KG
-% 05-14-2024
+% 05-15-2024
 % - basepath was added as an input. This is now the preferred way to use, not
 %   from session structure. 
+% - timescale simplification
 %
 % 04-25-2024
 % - For clusters in electrodegroups having less then 2 channels
