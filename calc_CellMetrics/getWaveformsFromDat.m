@@ -185,7 +185,6 @@ for i = 1:length(unitsToProcess)
        %wf = LSB *
        %permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
        indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
-       LSB = 1;
        wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
    end
 
