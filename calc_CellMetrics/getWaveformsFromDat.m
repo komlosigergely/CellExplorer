@@ -331,10 +331,6 @@ spikes.processinginfo.params.Waveforms_nPull = nPull;
 spikes.processinginfo.params.WaveformsWin_sec = wfWin_sec;
 spikes.processinginfo.params.WaveformsWinKeep = wfWinKeep;
 spikes.processinginfo.params.WaveformsFilterType = 'butter';
-%temp 
-spikes.processinginfo.params.spkTmp = spkTmp;
-
-spikes.processinginfo.params.spiketimes = spikes.times{:}(ismember(spikes.ts{:},spkTmp));
 clear rawWaveform rawWaveform_std filtWaveform filtWaveform_std
 clear rawData
 
