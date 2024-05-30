@@ -26,7 +26,7 @@ addParameter(p,'keepWaveforms_raw', false, @islogical); % Keep all extracted raw
 addParameter(p,'saveFig', false, @islogical); % Save figure with data
 addParameter(p,'extraLabel', '', @ischar); % Extra labels in figures
 addParameter(p,'getBadChannelsFromDat', true, @islogical); % Determining any extra bad channels from noiselevel of .dat file
-addParameter(p,'basepath', '', @ischar);
+addParameter(p,'basepath', pwd, @ischar);
 addParameter(p,'Diagnostic', false, @islogical);
 
 parse(p,varargin{:})
@@ -54,10 +54,6 @@ if Diagnostic
 end
 
 % Loading session struct into separate parameters
-if isempty(basepath)
-    basepath = session.general.basePath;
-    basename = session.general.name;
-end
 basename = bz_BasenameFromBasepath(basepath);
 LSB = session.extracellular.leastSignificantBit;
 nChannels = session.extracellular.nChannels;
