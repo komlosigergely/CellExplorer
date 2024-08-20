@@ -49,5 +49,5 @@ if exist(rezFile,'file')
     chanCoords.source = 'KiloSort';
     session.extracellular.chanCoords = chanCoords;
 else
-    disp('rez*.mat file does not exist')
+ %   disp('rez*.mat file does not exist')
 end
