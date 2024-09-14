@@ -99,7 +99,7 @@ addParameter(p,'metricsToExcludeManipulationIntervals',{'waveform_metrics','PCA_
 
 addParameter(p,'keepCellClassification',true,@islogical);
 addParameter(p,'manualAdjustMonoSyn',true,@islogical);
-addParameter(p,'getWaveformsFromDat',true,@islogical);
+addParameter(p,'getWaveformsFromDat',false,@islogical);
 addParameter(p,'includeInhibitoryConnections',false,@islogical);
 addParameter(p,'showGUI',false,@islogical);
 addParameter(p,'forceReload',false,@islogical);
@@ -303,6 +303,8 @@ if parameters.getWaveformsFromDat && (~isfield(spikes{1},'processinginfo') || ~i
         parameters.getWaveformsFromDat = 0; % otherwise it will run again in line 479
     end
    % spikes{1} = loadSpikes('forceReload',true,'spikes',spikes{1},'session',session,'labelsToRead',preferences.loadSpikes.labelsToRead,'showWaveforms',parameters.showWaveforms); % this is the original line%
+else
+    dispLog('Waveforms already exist. No calculation.',basename)
 end
 
 spikes{1}.numcells = length(spikes{1}.times);
@@ -461,15 +463,9 @@ cell_metrics.general.saveAs = parameters.saveAs;
 % Saving spike times to metrics
 cell_metrics.spikes.times = spikes{1}.times;
 
-% Add other spikes fields to cell_metrics / kg
-%cell_metrics.spikes.amplitudes = spikes{1}.amplitudes;
-if isfield(spikes, 'optoTag')
-    cell_metrics.spikes.optoTag = spikes.optoTag;
-end
-
 % Add field for ksfolder
-if isfield(spikes, 'ksfolder')
-    cell_metrics.ksfolder = spikes.ksfolder;
+if isfield(spikes{1}, 'ksfolder')
+    cell_metrics.ksfolder = spikes{1}.ksfolder;
 else
     warning('There is no ksfolder field in spikes structure.')
 end
@@ -493,6 +489,7 @@ if any(contains(parameters.metrics,{'waveform_metrics','all'})) && ~any(contains
         field2copyNewNames = {'filt_std','raw','raw_std','raw_all','filt_all','time_all','channels_all','filt','time'};
         if parameters.getWaveformsFromDat && (any(~isfield(spikes{spkExclu},field2copy)) || parameters.forceReload == true) && (spkExclu==2  || ~isempty(parameters.restrictToIntervals))
             spikes{spkExclu} = getWaveformsFromDat(spikes{spkExclu},session,'showWaveforms',parameters.showWaveforms);
+            warning('getWaveformsFromDat has been called.')
         end
         if isfield(spikes{spkExclu},'peakVoltage')
             cell_metrics.peakVoltage = spikes{spkExclu}.peakVoltage;
@@ -595,6 +592,7 @@ if any(contains(parameters.metrics,{'waveform_metrics','all'})) && ~any(contains
         
         for j = 1:cell_metrics.general.cellCount
             if ~isnan(cell_metrics.peakVoltage(j)) && isfield(cell_metrics.waveforms,'filt_all')
+                
                 % Trilateration
                 peakVoltage = range(cell_metrics.waveforms.filt_all{j}');
                 peakVoltage(bad_channels) = NaN;
@@ -812,11 +810,10 @@ end
 %% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % Putative MonoSynaptic connections
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
-
 if any(contains(parameters.metrics,{'monoSynaptic_connections','all'})) && ~any(contains(parameters.excludeMetrics,{'monoSynaptic_connections'}))
     spkExclu = setSpkExclu('monoSynaptic_connections',parameters);
     dispLog('MonoSynaptic connections',basename)
-    if ~exist(fullfile(basepath,[basename,'.mono_res',erase(parameters.saveAs,'cell_metrics'),'.cellinfo.mat']),'file') 
+    if ~exist(fullfile(basepath,[basename,'.mono_res',erase(parameters.saveAs,'cell_metrics'),'.cellinfo.mat']),'file') %|| parameters.forceReload 
         mono_res = ce_MonoSynConvClick(spikes{spkExclu},'includeInhibitoryConnections',parameters.includeInhibitoryConnections,'sr',sr);
         if parameters.manualAdjustMonoSyn
             dispLog('Loading MonoSynaptic GUI for manual adjustment',basename)

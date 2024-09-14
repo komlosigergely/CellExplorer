@@ -126,8 +126,9 @@ wfWin = round((wfWin_sec * sr)/2); % half window size in datapoint
 window_interval = wfWin-ceil(wfWinKeep*sr):wfWin-1+ceil(wfWinKeep*sr); % +- 0.8 ms of waveform
 window_interval2 = wfWin-ceil(1.5*wfWinKeep*sr):wfWin-1+ceil(1.5*wfWinKeep*sr); % +- 1.20 ms of waveform
 
-%window_interval = 1:2*wfWin;
-%window_interval2 = window_interval;
+% for spike amplitude distribution
+ baseline_beg = 5 : window_interval(1)-1;                    % 5 is arbitrary just to avoid edge artefact
+ baseline_end = window_interval(end)+1 : wfWin*2-5;          % 5 is arbitrary just to avoid edge artefact
 
 t1 = toc(timerVal);
 if ~exist(fullfile(basepath,fileNameRaw),'file')
@@ -142,6 +143,7 @@ rawData = memmapfile(fullfile(basepath,fileNameRaw),'Format',precision,'writable
 % Fit exponential
 g = fittype('a*exp(-x/b)+c','dependent',{'y'},'independent',{'x'},'coefficients',{'a','b','c'});
 
+%%
 for i = 1:length(unitsToProcess)
     ii = unitsToProcess(i);
     t1 = toc(timerVal);
@@ -157,6 +159,7 @@ for i = 1:length(unitsToProcess)
         spkTmp = sort(spkTmp(1:nPull));
     end
     spkTmp = spkTmp(:);
+
 %     % Determines the maximum waveform channel from 100 waveforms across all good channels
 %     startIndicies1 = (spkTmp(1:min(100,length(spkTmp))) - wfWin)*nChannels+1;
 %     stopIndicies1 =  (spkTmp(1:min(100,length(spkTmp))) + wfWin)*nChannels;
@@ -178,9 +181,8 @@ for i = 1:length(unitsToProcess)
        X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
        X2 = ([X2{:}])';
        %indicesM = permute(reshape(X2,nChannels,(wfWin*2),[]),[2,3,1]);  %original
-       %wf = LSB *
-       %permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
-       indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
+       %wf = LSB *permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]); %original
+       %indicesM = permute(reshape(X2,nChannels,[],length(spkTmp)),[2,3,1]);
        wf = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
    end
 
@@ -200,6 +202,54 @@ for i = 1:length(unitsToProcess)
     spikes.maxWaveformCh1(ii) = goodChannels(maxWaveformCh1);
     spikes.maxWaveformCh(ii) = spikes.maxWaveformCh1(ii)-1;
 
+
+
+
+    %% Intermezzo. Calculate spike amplitude for each instances. get individual filtered spike waveforms for the max channel. /kg
+    % get Sham spike times
+    num_sham_spikes = nPull;
+    spkTmp_sham = randi([sr*2, round(duration*sr-sr*2)], [num_sham_spikes,1]); % 2*sr is a generous way to avoid start-end of the file.
+    startIndicies2 = (spkTmp_sham - wfWin)*nChannels+1;  %original
+    stopIndicies2 = (spkTmp_sham + wfWin)*nChannels;  %original
+    X2 = arrayfun(@(x) startIndicies2(x):1:stopIndicies2(x), 1:length(stopIndicies2),'UniformOutput', false);
+    X2 = ([X2{:}])';
+    wf_sham = LSB * permute(reshape(double(rawData.Data(X2)),nChannels,(wfWin*2),[]),[2,3,1]);
+    
+    wfF_sham = zeros((wfWin * 2),num_sham_spikes,nChannels);
+    for jjj = 1 : nChannels
+        wfF_sham(:,:,jjj) = filtfilt(b1, a1, wf_sham(:,:,jjj));
+    end
+    wfF_sham = permute(wfF_sham,[3,1,2]);
+
+
+    
+    % Get real spike amplitude for each events.
+    wfF_maxCh = squeeze(wfF(maxWaveformCh1, :, :));
+    baselineVoltage_realSpikes = mean([wfF_maxCh(baseline_beg,:); wfF_maxCh(baseline_end,:)], 1)';
+    meantrace_realSpikes = mean(wfF_maxCh(window_interval,:), 2);
+
+    wfF_maxCh_sham = squeeze(wfF_sham(maxWaveformCh1, :, :));
+    baselineVoltage_sham = mean([wfF_maxCh_sham(baseline_beg,:); wfF_maxCh_sham(baseline_end,:)], 1)';
+   % meantrace_sham = mean(wfF_maxCh_sham(window_interval,:), 2);
+
+    if max(meantrace_realSpikes) + min(meantrace_realSpikes) < 0 % negative waveform
+        peakVoltage_realSpikes = min(wfF_maxCh(window_interval,:), [], 1)';
+        peakVoltage_sham = min(wfF_maxCh_sham(window_interval,:), [], 1)';
+    else
+        peakVoltage_realSpikes = max(wfF_maxCh(window_interval,:), [], 1)';
+        peakVoltage_sham = max(wfF_maxCh_sham(window_interval,:), [], 1)';
+    end
+
+    % Make sure everything is column vector
+%     peakVoltage_realSpikes = peakVoltage_realSpikes(:);
+%     baselineVoltage_realSpikes = baselineVoltage_realSpikes(:);
+%     peakVoltage_sham = peakVoltage_sham(:);
+%     baselineVoltage_sham = baselineVoltage_sham(:);
+
+    amplitudes_realSpikes = peakVoltage_realSpikes-baselineVoltage_realSpikes;
+    amplitudes_sham = peakVoltage_sham-baselineVoltage_sham;
+
+%% Create output structure
     % Assigning shankID to the unit
     for jj = 1:nElectrodeGroups
         if any(electrodeGroups{jj} == spikes.maxWaveformCh1(ii))
@@ -268,6 +318,14 @@ for i = 1:length(unitsToProcess)
     else
         spikes.peakVoltage_expFitLengthConstant(ii) = nan;
     end
+
+    % 
+    spikes.amplitudes_realSpikes{ii} = amplitudes_realSpikes;
+    spikes.amplitudes_sham{ii} = amplitudes_sham;
+    spikes.wfF_maxCh{ii} = wfF_maxCh;
+    spikes.wfF_maxCh_sham{ii} = wfF_maxCh_sham;
+
+    %% Plot for each unit
     % time = ([-ceil(wfWin_sec/2*sr)*(1/sr):1/sr:(ceil(wfWin_sec/2*sr)-1)*(1/sr)])*1000;
     time = [-wfWin_sec/2:1/sr:wfWin_sec/2]*1000;
     time = time(1:size(wfF2,1));
@@ -321,16 +379,21 @@ for i = 1:length(unitsToProcess)
     clear wf wfF wf2 wfF2
 end
 
-spikes.processinginfo.params.WaveformsSource = 'dat file';
-spikes.processinginfo.params.WaveformsFiltFreq = filtFreq;
-spikes.processinginfo.params.Waveforms_nPull = nPull;
-spikes.processinginfo.params.WaveformsWin_sec = wfWin_sec;
-spikes.processinginfo.params.WaveformsWinKeep = wfWinKeep;
-spikes.processinginfo.params.WaveformsFilterType = 'butter';
-clear rawWaveform rawWaveform_std filtWaveform filtWaveform_std
-clear rawData
+%%  Prepare outpout ans save
+    spikes.processinginfo.params.WaveformsSource = 'dat file';
+    spikes.processinginfo.params.WaveformsFiltFreq = filtFreq;
+    spikes.processinginfo.params.Waveforms_nPull = nPull;
+    spikes.processinginfo.params.WaveformsWin_sec = wfWin_sec;
+    spikes.processinginfo.params.WaveformsWinKeep = wfWinKeep;
+    spikes.processinginfo.params.WaveformsFilterType = 'butter';
+    spikes.processinginfo.params.baseline = [baseline_beg, baseline_end];
+    spikes.processinginfo.params.window_interval = window_interval;
 
-% Plots
+
+    clear rawWaveform rawWaveform_std filtWaveform filtWaveform_std
+    clear rawData
+
+
 if showWaveforms && ishandle(fig1)
     fig1.Name = [basename, ': Waveform extraction complete. ',num2str(i),' cells processed.  ', num2str(round(toc(timerVal)/60)) ' minutes total'];
     
