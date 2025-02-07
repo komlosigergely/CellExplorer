@@ -44,6 +44,9 @@ sliderMovedManually = false;
 deviceWriter = [];
 polygon1.handle = gobjects(0);
 
+% HFT specific options (Added by KG)
+OperationMode = 'HFT'; % 'original' or 'HFT'
+
 if isdeployed % Check for if NeuroScope2 is running as a deployed app (compiled .exe or .app for windows and mac respectively)
     if ~isempty(varargin) % If a file name is provided it will load it.
         [basepath,basename,ext] = fileparts(varargin{1});
@@ -4155,21 +4158,40 @@ end
     
     function toggleSpikes(~,~)
         % Toggle spikes data
-        if ~isfield(data,'spikes') && exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file')
-            data.spikes = loadSpikes('session',data.session);
-            data.spikes.spindices = generateSpinDices(data.spikes.times);
-            if ~isfield(data.spikes,'maxWaveformCh1') && isfield(data.spikes,'maxWaveformCh')
-                data.spikes.maxWaveformCh1 = data.spikes.maxWaveformCh+1;
-            elseif ~isfield(data.spikes,'maxWaveformCh1')
-                for i = 1:data.spikes.numcells
-                    data.spikes.maxWaveformCh1(i) = data.session.extracellular.electrodeGroups.channels{data.spikes.shankID(i)}(1);
+        switch OperationMode
+            case 'original'
+                if ~isfield(data,'spikes') && exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file')
+                    data.spikes = loadSpikes('session',data.session);
+                    data.spikes.spindices = generateSpinDices(data.spikes.times);
+                    if ~isfield(data.spikes,'maxWaveformCh1') && isfield(data.spikes,'maxWaveformCh')
+                        data.spikes.maxWaveformCh1 = data.spikes.maxWaveformCh+1;
+                    elseif ~isfield(data.spikes,'maxWaveformCh1')
+                        for i = 1:data.spikes.numcells
+                            data.spikes.maxWaveformCh1(i) = data.session.extracellular.electrodeGroups.channels{data.spikes.shankID(i)}(1);
+                        end
+                    end
+                elseif ~exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file')
+                    UI.panel.spikes.showSpikes.Value = 0;
+                    MsgLog('Spikes does not exist',4);
+                    return
                 end
-            end
-        elseif ~exist(fullfile(basepath,[basename,'.spikes.cellinfo.mat']),'file')
-            UI.panel.spikes.showSpikes.Value = 0;
-            MsgLog('Spikes does not exist',4);
-            return
+
+            case 'HFT'
+                     selectedSpikesFile = uigetfile([basename '.spikes*.mat']);
+                     tempstruct = load(selectedSpikesFile); fieldTS = fieldnames(tempstruct);
+                     data.spikes = tempstruct.(fieldTS{1});
+                     data.spikes.spindices = generateSpinDices(data.spikes.times);
+                    if ~isfield(data.spikes,'maxWaveformCh1') && isfield(data.spikes,'maxWaveformCh')
+                        data.spikes.maxWaveformCh1 = data.spikes.maxWaveformCh+1;
+                    elseif ~isfield(data.spikes,'maxWaveformCh1')
+                        for i = 1:data.spikes.numcells
+                            data.spikes.maxWaveformCh1(i) = data.session.extracellular.electrodeGroups.channels{data.spikes.shankID(i)}(1);
+                        end
+                    end
         end
+
+
+
         UI.settings.showSpikes = ~UI.settings.showSpikes;
         if UI.settings.showSpikes
             UI.panel.spikes.showSpikes.Value = 1;
@@ -7315,3 +7337,6 @@ end
         end
     end
 end
+%% Revision by Gergely Komlosi
+% 02-07-2025
+% I introduced OperationMode variable which can be 'original' or 'HFT'.
