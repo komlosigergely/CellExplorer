@@ -200,7 +200,7 @@ if nargin==0
 end
 
 % Loading preferences
-preferences = preferences_ProcessCellMetrics(session);
+preferences = preferences_ProcessCellMetrics_HFT(session);
 
 % Validating format of electrode groups and spike groups  (must be of type cell)
 if isfield(session.extracellular,'spikeGroups') && isfield(session.extracellular.spikeGroups,'channels') && isnumeric(session.extracellular.spikeGroups.channels)
@@ -1709,6 +1709,9 @@ function spkExclu = setSpkExclu(metrics,parameters)
 end
 
 %% Modification by KG
+% 06-11-2025
+% preferences_ProcessCellMetrics_HFT relpaces preferences_ProcessCellMetrics. 
+%
 % 04-27-2024
 % Add field for ksfolder. Look for 'Add field for ksfolder' in 'Initializing cell_metrics struct' section. 
 % 
@@ -1722,3 +1725,5 @@ end
 %   ce_fix_WaveformFit_with_2_channels is included when the length constant of
 %   waveform is calculated. look for: ce_fix_WaveformFit_with_2_channels.
 % - getWaveformsFromDat: inputs has been modified in some places.
+%
+% NOTE: use preferences_ProcessCellMetrics
