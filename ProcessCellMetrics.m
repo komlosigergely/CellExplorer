@@ -1001,7 +1001,7 @@ if any(contains(parameters.metrics,{'spatial_metrics','all'})) && ~any(contains(
     if ~isempty(dir(fullfile(basepath,[basename,'.*.firingRateMap.mat'])))
         dispLog('Spatial metrics',basename);
     end
-    
+
     % Cleaning legacy fields
     field2remove = {'firingRateMap_CoolingStates','firingRateMap_LeftRight','firingRateMaps','firingRateMap','firing_rate_map_states','firing_rate_map','placecell_stability','SpatialCoherence','place_cell','placefield_count','placefield_peak_rate','FiringRateMap','FiringRateMap_CoolingStates','FiringRateMap_StimStates','FiringRateMap_LeftRight'};
     test = isfield(cell_metrics,field2remove);
