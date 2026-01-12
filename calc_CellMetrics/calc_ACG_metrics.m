@@ -20,10 +20,16 @@ function acg_metrics = calc_ACG_metrics(spikes,sr,varargin)
 % petersen.peter@gmail.com
 % Last edited: 06-10-2020
 p = inputParser;
+addParameter(p,'min_SpikeNumber',100,@isnumeric);
 addParameter(p,'showFigures',true,@islogical);
 parse(p,varargin{:})
 
+min_SpikeNumber = p.Results.min_SpikeNumber;
+showFigures = p.Results.showFigures;
+
+
 spikes.numcells = length(spikes.times);
+spikeNumber = cellfun(@(x) numel(x), spikes.times);
 
 ThetaModulationIndex = nan(1,spikes.numcells);
 BurstIndex_Royer2012 = nan(1,spikes.numcells);
@@ -36,19 +42,22 @@ acg_wide = zeros(bins_wide*2+1,numel(spikes.times));
 bins_narrow = 100;
 acg_narrow = zeros(bins_narrow*2+1,numel(spikes.times));
 disp('Calculating narrow ACGs (100ms, 0.5ms bins) and wide ACGs (1s, 1ms bins)')
+
 tic
 for i = cell_indexes
-    acg_wide(:,i) = CCG(spikes.times{i},ones(size(spikes.times{i})),'binSize',0.001,'duration',1,'norm','rate','Fs',1/sr);
-    acg_narrow(:,i) = CCG(spikes.times{i},ones(size(spikes.times{i})),'binSize',0.0005,'duration',0.100,'norm','rate','Fs',1/sr);
-    % Metrics from narrow
-    BurstIndex_Doublets(i) = max(acg_narrow(bins_narrow+1+5:bins_narrow+1+16,i))/mean(acg_narrow(bins_narrow+1+16:bins_narrow+1+23,i));
-    % Metrics from wide
-    ThetaModulationIndex(i) = (mean(acg_wide(bins_wide+1+100:bins_wide+1+140,i)) - mean(acg_wide(bins_wide+1+50:bins_wide+1+70,i)))/(mean(acg_wide(bins_wide+1+50:bins_wide+1+70,i))+mean(acg_wide(bins_wide+1+100:bins_wide+1+140,i)));
-    BurstIndex_Royer2012(i) = mean(acg_wide(bins_wide+1+3:bins_wide+1+5,i))/mean(acg_wide(bins_wide+1+200:bins_wide+1+300,i));
+    if numel(spikes.times{i}) > min_SpikeNumber
+        acg_wide(:,i) = CCG(spikes.times{i},ones(size(spikes.times{i})),'binSize',0.001,'duration',1,'norm','rate','Fs',1/sr);
+        acg_narrow(:,i) = CCG(spikes.times{i},ones(size(spikes.times{i})),'binSize',0.0005,'duration',0.100,'norm','rate','Fs',1/sr);
+        % Metrics from narrow
+        BurstIndex_Doublets(i) = max(acg_narrow(bins_narrow+1+5:bins_narrow+1+16,i))/mean(acg_narrow(bins_narrow+1+16:bins_narrow+1+23,i));
+        % Metrics from wide
+        ThetaModulationIndex(i) = (mean(acg_wide(bins_wide+1+100:bins_wide+1+140,i)) - mean(acg_wide(bins_wide+1+50:bins_wide+1+70,i)))/(mean(acg_wide(bins_wide+1+50:bins_wide+1+70,i))+mean(acg_wide(bins_wide+1+100:bins_wide+1+140,i)));
+        BurstIndex_Royer2012(i) = mean(acg_wide(bins_wide+1+3:bins_wide+1+5,i))/mean(acg_wide(bins_wide+1+200:bins_wide+1+300,i));
+    end
 end
 toc
 
-if p.Results.showFigures
+if showFigures
     figure, subplot(3,1,1)
     histogram(ThetaModulationIndex,40),xlabel('Theta modulation index'), ylabel('Count')
     subplot(3,1,2)
@@ -62,3 +71,4 @@ acg_metrics.acg_narrow = acg_narrow;
 acg_metrics.thetaModulationIndex = ThetaModulationIndex;
 acg_metrics.burstIndex_Royer2012 = BurstIndex_Royer2012;
 acg_metrics.burstIndex_Doublets = BurstIndex_Doublets;
+acg_metrics.spikeNumber = spikeNumber;
