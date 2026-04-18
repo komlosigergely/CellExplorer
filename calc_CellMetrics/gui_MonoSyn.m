@@ -151,7 +151,7 @@ while temp444 == 1
         set(UI.fig,'CurrentAxes',ha(j)), hold on
         targ = completeIndex(completeIndex(:,3) == allcel(i),1:2);
         targ_UID = completeIndex(completeIndex(:,3) == allcel(i),3);
-        plotTitle.String = ['Reference Cell: ' num2str(targ_UID) ', group: '  num2str(targ(1)),', cluID: ',num2str(targ(2)),' (', num2str(i),'/' num2str(length(allcel)),')'];
+        plotTitle.String = ['Reference Cell: ' num2str(targ_UID) ', shank: '  num2str(targ(1)),', cluID: ',num2str(targ(2)),' (', num2str(i),'/' num2str(length(allcel)),')'];
         if j<=size(prs,1)
             prs1 = prs(j,:);
             if prs1(1)~=allcel(i)
